@@ -1,10 +1,8 @@
-import numpy as np
 from typing import Union
 
-from scipy.sparse import csgraph
-from scipy.sparse import dok_matrix
+import numpy as np
+from scipy.sparse import csgraph, dok_matrix
 from scipy.sparse.linalg import eigsh
-
 from sklearn.neighbors import KDTree
 
 
@@ -30,6 +28,8 @@ def run_graph_laplacian(
     sigma : float
         The standard deviation of the gaussian normal distribution function used to
         transform the distances for the inverse distance based weighting.
+    search_radius:
+
 
     Returns
     -------
@@ -44,8 +44,8 @@ def run_graph_laplacian(
             + r"matrices or deal with linear algebra"
         )
         np.warnings.filterwarnings("ignore", regex_string)
-        L = _laplacian_gauss_idw(points, min_neighbors, sigma, search_radius)
-        return _laplacian(L, points, n_eigenmodes)
+        lapl = _laplacian_gauss_idw(points, min_neighbors, sigma, search_radius)
+        return _laplacian(lapl, n_eigenmodes)
 
 
 def _laplacian_gauss_idw(
@@ -56,7 +56,7 @@ def _laplacian_gauss_idw(
 ):
     """
     Calculates the laplacian matrix for the sample points of a manifold. The inverse
-    of the the gauss-transformed distance is used as weighting of the neighbors.
+    of the gauss-transformed distance is used as weighting of the neighbors.
 
     Parameters
     ----------
@@ -100,9 +100,7 @@ def _laplacian_gauss_idw(
         )
     ):
         # Always search for k neighbors, this prevents strongly connected local areas
-        # a little bit, attracting the eigenfield
-        if len(j) < 1 + min_neighbors:
-            d, j = e, k
+        # a little, attracting the eigenfield
 
         d, j = e, k
         k = j != i
@@ -117,7 +115,7 @@ def _laplacian_gauss_idw(
     return csgraph.laplacian(graph, normed=True)
 
 
-def _laplacian(L: csgraph, points: np.ndarray, n_eigenmodes: int = 5):
+def _laplacian(lapl: csgraph, n_eigenmodes: int = 5):
     """
     Compute the laplacian of a graph L
 
@@ -146,36 +144,15 @@ def _laplacian(L: csgraph, points: np.ndarray, n_eigenmodes: int = 5):
 
     while n_nonzero_eigenvalues < n_eigenmodes:
 
-        eigen_vals, eigen_vecs = map(np.real, eigsh(L, n_eigenvalues, which="SA"))
+        eigen_vals, eigen_vecs = map(np.real, eigsh(lapl, n_eigenvalues, which="SA"))
 
-        iStart = np.argmax(eigen_vals > 1e-7)
-        n_nonzero_eigenvalues = len(eigen_vals) - iStart
+        i_start = np.argmax(eigen_vals > 1e-7)
+        n_nonzero_eigenvalues = len(eigen_vals) - i_start
 
         if n_nonzero_eigenvalues >= n_eigenmodes:
-            eigen_vecs = eigen_vecs[:, iStart : iStart + n_eigenmodes]
-            eigen_vals = eigen_vals[iStart : iStart + n_eigenmodes]
+            eigen_vecs = eigen_vecs[:, i_start : i_start + n_eigenmodes]
+            eigen_vals = eigen_vals[i_start : i_start + n_eigenmodes]
 
         n_eigenvalues = int(n_eigenvalues * 1.5)
-
-    # optional plotting
-    """
-    if export_filepath:
-
-        indexes = random.sample(range(0, len(points)), min(39000, len(points)))
-        subpoints = points[indexes]
-        subeigen = eigen_vecs[indexes, iStart:iStart+n_eigenmodes].T
-        subeigen_vals = eigen_vals[iStart:iStart+n_eigenmodes]
-
-        fringe_names = ["Eigen Vector %d (eigval = %f)" % (
-            iEigen, value) for iEigen, value in enumerate(subeigen_vals)]
-
-        if not export_filepath.endswith(".html"):
-            export_filepath += ".html"
-
-        plotly_3d(subpoints[:, 0], subpoints[:, 1], subpoints[:, 2],
-                  fringe=subeigen,
-                  filepath=export_filepath,
-                  fringe_names=fringe_names)
-    """
 
     return eigen_vals, eigen_vecs

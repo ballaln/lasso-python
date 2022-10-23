@@ -1,12 +1,15 @@
 import glob
 import struct
 
+# We disable pylint here since this code is ancient code from LSTC and has the
+# respective quality. I tried rewriting it but could not understand it at all
+# in time.
+# pylint: skip-file
+
 
 class LsdaError(Exception):
-    """This is only here so I can raise an error in case the data type
+    """This is only here, so I can raise an error in case the data type
     sizes are not what I expect"""
-
-    pass
 
 
 class _Diskfile:
@@ -102,7 +105,6 @@ class _Diskfile:
         length = self.lengthsize + self.commandsize + len(dir)
         s = struct.pack(self.lcunpack, length, Lsda.CD)
         self.fp.write(s)
-        # TODO
         if type(dir) is str:
             self.fp.write(bytes(dir, "utf-8"))
         else:
@@ -372,8 +374,7 @@ def _writesymboltable(lsda, f):
         cwd = lsda.cwd
         cwd.children = {}
         while cwd.parent:
-            cwd.parent.children = {}
-            cwd.parent.children[cwd.name] = cwd
+            cwd.parent.children = {cwd.name: cwd}
             cwd = cwd.parent
 
     # And add link from previous ST
@@ -397,22 +398,22 @@ def _get_min_cd(cwd, cd):
     nwant = len(want)
     n = min(nhave, nwant)
     head = 0
-    headlength = 0
+    head_length = 0
     for i in range(n):
         if have[i] != want[i]:
             break
         head = i + 1
-        headlength = headlength + len(have[i])
+        head_length = head_length + len(have[i])
     if head == 0:
         return cd
 
     # head = # of common components.
-    # headlength = string length of common part of path (sans "/" separators)
-    # tail1 = # components we would need ".." leaders for
+    # head_length = string length of common part of path (sans "/" separators)
+    # tail1 = Number of components we would need ".." leaders for
     tail1 = nhave - head
 
     # Now see if "cd" is shorter than "../../tail_part"
-    if 2 * tail1 >= headlength:
+    if 2 * tail1 >= head_length:
         return cd
 
     # nope, the ".." version is shorter....

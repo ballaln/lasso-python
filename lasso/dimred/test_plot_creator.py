@@ -5,7 +5,7 @@ import random
 import numpy as np
 import plotly.graph_objects as go
 
-from lasso.dyna.D3plot import ArrayType, D3plot
+from lasso.dyna.d3plot import ArrayType, D3plot
 
 
 def create_fake_d3plots(
@@ -114,6 +114,8 @@ def create_2_fake_plots(folder: str, n_nodes_x: int, n_nodes_y: int, n_timesteps
 
     Parameters
     ----------
+    folder: str
+        folder path
     n_nodes_x: int
         how many nodes in x
     n_nodes_y: int
@@ -154,6 +156,8 @@ def create_50_fake_plots(folder: str, n_nodes_x: int, n_nodes_y: int, n_timestep
 
     Parameters
     ----------
+    folder: str
+        folder path
     n_nodes_x: int
         how many nodes in x
     n_nodes_y: int

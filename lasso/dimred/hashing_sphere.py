@@ -1,11 +1,16 @@
-from sklearn.preprocessing import normalize
-from scipy.stats import binned_statistic_2d
-from scipy.spatial import ConvexHull
 import os
-import h5py
 import typing
-import numpy as np
 import warnings
+
+import h5py
+import numpy as np
+
+# scipy is C-code which causes invalid linter warning about ConvexHull not
+# being around.
+# pylint: disable = no-name-in-module
+from scipy.spatial import ConvexHull
+from scipy.stats import binned_statistic_2d
+from sklearn.preprocessing import normalize
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -22,14 +27,14 @@ def _create_sphere_mesh(diameter: np.ndarray) -> typing.Tuple[np.ndarray, np.nda
     Returns
     -------
     bin_alpha : np.ndarray
-        alpha bin boundairies
+        alpha bin boundaries
     bin_beta : np.ndarray
-        beta bin boundairies
+        beta bin boundaries
     """
 
     assert diameter.dtype == np.float
 
-    # partion latitude
+    # partition latitude
     n_alpha = 145
 
     # sphere radius
@@ -54,7 +59,7 @@ def _create_sphere_mesh(diameter: np.ndarray) -> typing.Tuple[np.ndarray, np.nda
     tmp /= r**2 * delt_alpha
     bin_beta = 1 - tmp
 
-    # incase of trailing floats (-1.00000004 for example)
+    # In case of trailing floats (-1.00000004 for example)
     if bin_beta[-1] < -1:
         bin_beta[-1] = -1
 
@@ -64,7 +69,7 @@ def _create_sphere_mesh(diameter: np.ndarray) -> typing.Tuple[np.ndarray, np.nda
 
 
 def _project_to_sphere(
-    points: np.ndarray, centroid: np.ndarray, AXIS: str = "Z"
+    points: np.ndarray, centroid: np.ndarray, axis: str = "Z"
 ) -> typing.Tuple[np.ndarray, np.ndarray]:
     """compute the projection vectors of centroid to each point in terms of spherical coordinates
 
@@ -88,12 +93,12 @@ def _project_to_sphere(
     indexes = [0, 1, 2]
 
     # correct the indexes based on user input
-    if AXIS == "Z":
-        indexes = [0, 1, 2]  # z axis aligned with global z axis
-    elif AXIS == "Y":
-        indexes = [0, 2, 1]  # z axis aligned with global y axis
-    elif AXIS == "X":
-        indexes = [2, 1, 0]  # z axis aligned with global x axis
+    if axis == "Z":
+        indexes = [0, 1, 2]  # z axis aligned with global z-axis
+    elif axis == "Y":
+        indexes = [0, 2, 1]  # z axis aligned with global y-axis
+    elif axis == "X":
+        indexes = [2, 1, 0]  # z axis aligned with global x-axis
 
     # projection
     vec = points - centroid
@@ -101,10 +106,10 @@ def _project_to_sphere(
     # normalize
     vec = normalize(vec, axis=1, norm="l2")
 
-    # alpha based on sphere axis aligment
+    # alpha based on sphere axis alignment
     ang = np.arctan2(vec[:, indexes[1]], vec[:, indexes[0]])
 
-    # atan2 retrns neg angles for values greater that 180
+    # atan2 returns neg angles for values greater than 180
     neg_indexes = np.where(ang < 0)
     ang[neg_indexes] += 2 * np.pi
 
@@ -122,7 +127,7 @@ def sphere_hashing(
     Parameters
     ----------
     bin_numbers : np.ndarray
-        bin numbers for the respective index for the x and y axis
+        bin numbers for the respective index for the x and y-axis
     bin_counts : np.ndarray
         number of points that fall into each bin
     field : np.ndarray
@@ -174,20 +179,16 @@ def compute_hashes(
 ):
     """Compute the hashes using spherical projection of the field values
 
-    NOTE:
-        Key for node_displacements for all timesteps: 'xyz'
-        Key for field values for all timesteps: 'fields'
-
     Parameters
     ----------
     source_path : str
         path to source directory from which the displacements/strains are
         loaded, this directory should contain HDF5 files of the data
-    target_path(optional) : str
+    target_path : str (optional)
         directory in which the hashes are to be written to
-    n_files(optional) : int
+    n_files : int (optional)
         number of files to process, useful for verification and quick visualization
-    ret_vals(optional) : bool
+    ret_vals : bool (optional)
         return the hashes, setting this to true, be aware that the hash list can
         take up a lot of ram
 
@@ -195,7 +196,15 @@ def compute_hashes(
     -------
     hashes : np.ndarray
         hashed field values
+
+    Notes
+    -----
+        Key for node_displacements for all timesteps: 'xyz'
+        Key for field values for all timesteps: 'fields'
     """
+
+    # pylint: disable = too-many-locals
+
     node_displacement_key = "xyz"
     fields_key = "fields"
     file_name = "run_"
@@ -210,8 +219,8 @@ def compute_hashes(
     # the last time step only
     for ii in range(n_files):
         with h5py.File(source_path + file_name + str(ii) + ".h5", "r") as hf:
-            node_displacements = hf[node_displacement_key].value
-            fields = hf[fields_key].value
+            node_displacements = hf[node_displacement_key]
+            fields = hf[fields_key]
 
         xyz = node_displacements[:, 0, :]
 
@@ -226,7 +235,7 @@ def compute_hashes(
         bins_a, bins_b = _create_sphere_mesh(dist)
 
         # compute the point projections
-        proj_alpha, proj_beta = _project_to_sphere(xyz, centroid, AXIS="Y")
+        proj_alpha, proj_beta = _project_to_sphere(xyz, centroid, axis="Y")
 
         # bin the spherical coordinates in terms of alpha and beta
         histo = binned_statistic_2d(

@@ -154,7 +154,7 @@ class BinaryBuffer:
         ----------
         start: int
             at which byte to start reading
-        len: int
+        length: int
             length in bytes to read
         step: int
             byte step size (how many bytes to skip)
@@ -163,7 +163,7 @@ class BinaryBuffer:
 
         Returns
         -------
-        array: np.andrray
+        array: np.ndarray
         """
 
         return np.frombuffer(self.mv_[start : start + length : step], dtype=dtype)
